@@ -44,12 +44,6 @@
   .fault{background:var(--max-light-gray);border:1px solid var(--border);border-left:6px solid var(--max-red);border-radius:14px;padding:12px;margin:10px 0}
   .trace{height:420px;overflow:auto;font-family:Consolas,'Courier New',monospace;white-space:pre;background:var(--max-black);color:var(--max-light-gray);border:1px solid var(--max-gray);border-radius:12px;padding:12px;-webkit-overflow-scrolling:touch}
   .small{font-size:13px}.simple-card{border:1px solid var(--border);border-radius:16px;padding:14px;background:var(--max-light-gray)}
-  details.howto{padding:0;overflow:hidden}
-  details.howto summary{list-style:none;cursor:pointer;padding:14px;display:flex;justify-content:space-between;gap:10px;align-items:center;font-weight:700;color:var(--max-gray)}
-  details.howto summary::-webkit-details-marker{display:none}
-  details.howto summary:after{content:'+';display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;border-radius:50%;background:var(--max-red);color:#fff;font-weight:700}
-  details.howto[open] summary:after{content:'−'}
-  details.howto .howto-body{padding:0 14px 14px}
   .notice{border-left:6px solid var(--max-red);background:#fff5f5;padding:12px;border-radius:12px;margin:10px 0}
   @media(max-width:640px){main{padding:10px;gap:12px}section{padding:14px;border-radius:14px}.grid{grid-template-columns:1fr}.row{display:grid;grid-template-columns:1fr;align-items:stretch}.tabs{display:grid;grid-template-columns:1fr}button{width:100%}.trace{height:320px;font-size:12px}th,td{font-size:13px;padding:7px}}
 </style>
@@ -70,14 +64,11 @@
 <div id="viewer" class="view active">
 <section>
   <h2>Simple MAX-SAFE Fault Selector</h2>
-  <details class="simple-card howto">
-    <summary><span>How to use this</span><span class="muted small">Click to expand</span></summary>
-    <div class="howto-body">
-      <p>Choose one <strong>fault</strong> from the list, then click <strong>Add selected fault</strong>. The fault is added to the active fault stack and its SPN/FMI are used to create the DM1 message.</p>
-      <p>Repeat that process to stack multiple active faults. The same exact fault is not added twice, but different faults from the list can be active at the same time.</p>
-      <p class="muted small"><strong>SPN</strong> means the faulty component or signal. <strong>FMI</strong> means how it failed. This tool uses <strong>single-packet DM1 only</strong>. If several faults are active, the live trace rotates through them one-by-one, one fault every second. When no faults are active, MAX-SAFE sends the no-fault DM1 frame.</p>
-    </div>
-  </details>
+  <div class="simple-card">
+    <h3>How to use this</h3>
+    <p>Use this like a simple fault translator. Choose the <strong>fault</strong> from the list. The tool shows the exact CAN message MAX-SAFE would transmit.</p>
+    <p class="muted small"><strong>SPN</strong> means the faulty component or signal. <strong>FMI</strong> means how it failed. For this customer, the trace uses <strong>single-packet DM1 only</strong>. If several faults are active, the live trace rotates through them one-by-one, one fault every second. When no faults are active, MAX-SAFE sends the no-fault DM1 frame.</p>
+  </div>
   <div class="grid" style="margin-top:14px">
     <div><label>Fault</label><select id="simpleFault" onchange="renderSimpleInfo(); render();"></select></div>
   </div>
@@ -196,18 +187,12 @@ function selectedDevFault(){return selectedFaultFrom('devFault')}
 function renderSimpleInfo(){const f=selectedSimpleFault(); const box=document.getElementById('simpleInfo'); if(!f){box.innerHTML='<strong>No fault selected.</strong><br><span class="muted">Start by selecting a fault from the list.</span>';return} box.innerHTML=`<strong>${f.label}</strong><br>SPN: ${f.prop?'Proprietary ':''}${f.spn} [0x${hex(f.spn, f.spn>255?5:2)}]<br>FMI: ${f.fmi} - ${fmiText(f.fmi)}<br>Criticality: <strong>${f.crit}</strong><br>Lamp status: <strong>${f.lamp}</strong><br>Lamp flash: <strong>${f.flash}</strong><br><br><pre>${faultPreviewMessage(f)}</pre>`;}
 function addSimpleFault(){const f=selectedSimpleFault(); if(!f){duplicateWarning='Select a fault first.'; renderFaults(); return} addFaultObj(f)}
 function addDevMappedFault(){const f=selectedDevFault(); if(!f){duplicateWarning='Select a mapped fault first.'; renderFaults(); return} addFaultObj(f)}
-function faultKey(fOrSpn,fmi){
-  if(typeof fOrSpn==='object' && fOrSpn!==null){
-    if(fOrSpn.no!==undefined)return `list:${fOrSpn.no}`;
-    return `manual:${parseInt(fOrSpn.spn)||0}:${parseInt(fOrSpn.fmi)||0}`;
-  }
-  return `manual:${parseInt(fOrSpn)||0}:${parseInt(fmi)||0}`;
-}
-function hasDuplicateFault(f,ignore=-1){const key=faultKey(f);return faults.some((x,i)=>i!==ignore&&faultKey(x)===key)}
-function addFaultObj(f){if(hasDuplicateFault(f)){duplicateWarning=`${f.label||'Fault SPN '+f.spn+' FMI '+f.fmi} is already active. Duplicate active faults are not added.`}else{faults.push({...f}); duplicateWarning=''} renderFaults(); render();}
+function faultKey(spn,fmi){return `${parseInt(spn)||0}:${parseInt(fmi)||0}`}
+function hasDuplicateFault(spn,fmi,ignore=-1){const key=faultKey(spn,fmi);return faults.some((f,i)=>i!==ignore&&faultKey(f.spn,f.fmi)===key)}
+function addFaultObj(f){if(hasDuplicateFault(f.spn,f.fmi)){duplicateWarning=`Fault SPN ${f.spn} FMI ${f.fmi} already exists. Duplicate active DTCs are not added.`}else{faults.push({...f}); duplicateWarning=''} renderFaults(); render();}
 function addFault(){const spn=parseInt(document.getElementById('newSpn').value); const fmi=parseInt(document.getElementById('newFmi').value); if(Number.isNaN(spn)){duplicateWarning='Enter an SPN before adding a manual fault.'; renderFaults(); return} addFaultObj({spn,fmi,crit:document.getElementById('manualCrit').value,lamp:document.getElementById('manualCrit').value==='High'?'Red Stop Lamp':'Amber Warning Lamp',flash:document.getElementById('manualCrit').value==='High'?'Fast Flash':'Slow Flash',label:'Manual fault'});}
 function clearFaults(doRender=true){faults=[]; duplicateWarning=''; rotationIndex=0; if(doRender){renderFaults(); render();}}
-function uniqueFaults(){const seen=new Set(),out=[]; faults.forEach(f=>{const k=faultKey(f); if(!seen.has(k)){seen.add(k); out.push(f)}}); return out;}
+function uniqueFaults(){const seen=new Set(),out=[]; faults.forEach(f=>{const k=faultKey(f.spn,f.fmi); if(!seen.has(k)){seen.add(k); out.push(f)}}); return out;}
 let rotationIndex=0;
 function currentRotationFault(){const u=uniqueFaults(); if(!u.length)return null; return u[rotationIndex % u.length];}
 function previewFault(){const u=uniqueFaults(); if(!u.length)return null; return u[0];}
@@ -219,7 +204,7 @@ function faultPreviewMessage(f){
   return `CAN ID: ${hex(canId,8)}
 Data:   ${payload.map(b=>hex(b)).join(' ')}`;
 }
-function renderFaults(){['faults','simpleActive'].forEach(id=>{const box=document.getElementById(id); if(!box)return; box.innerHTML=''; if(duplicateWarning)box.innerHTML+=`<div class="fault"><strong>Notice:</strong> ${duplicateWarning}</div>`; if(!faults.length){box.innerHTML+='<p class="muted">No active faults added. MAX-SAFE transmits the no-fault DM1 frame:</p><pre>CAN ID: '+hex(calc().canId,8)+'\nData:   00 00 FF FF FF FF FF FF</pre>'; return} const u=uniqueFaults(); faults.forEach((f,i)=>{const order=u.findIndex(x=>faultKey(x)===faultKey(f)); const msg=faultPreviewMessage(f); box.innerHTML+=`<div class="fault"><strong>${f.label||'Fault '+(i+1)}</strong> <span class="pill">DM1 rotation #${order+1}</span><br>SPN ${f.prop?'Proprietary ':''}${f.spn}, FMI ${f.fmi} - ${fmiText(f.fmi)}<br>Criticality: ${f.crit||'Medium'} | Lamp: ${f.lamp||'TBD'} | Flash: ${f.flash||'TBD'}<br><span class="muted small">Single-packet rule: this fault is sent as its own DM1 frame when its turn comes in the rotation.</span><pre>${msg}</pre><button class="danger" style="margin-top:10px" onclick="faults.splice(${i},1);duplicateWarning=''; if(rotationIndex>=uniqueFaults().length) rotationIndex=0; renderFaults();render();">Remove this fault</button></div>`})})}
+function renderFaults(){['faults','simpleActive'].forEach(id=>{const box=document.getElementById(id); if(!box)return; box.innerHTML=''; if(duplicateWarning)box.innerHTML+=`<div class="fault"><strong>Notice:</strong> ${duplicateWarning}</div>`; if(!faults.length){box.innerHTML+='<p class="muted">No active faults added. MAX-SAFE transmits the no-fault DM1 frame:</p><pre>CAN ID: '+hex(calc().canId,8)+'\nData:   00 00 FF FF FF FF FF FF</pre>'; return} const u=uniqueFaults(); faults.forEach((f,i)=>{const order=u.findIndex(x=>faultKey(x.spn,x.fmi)===faultKey(f.spn,f.fmi)); const msg=faultPreviewMessage(f); box.innerHTML+=`<div class="fault"><strong>${f.label||'Fault '+(i+1)}</strong> <span class="pill">DM1 rotation #${order+1}</span><br>SPN ${f.prop?'Proprietary ':''}${f.spn}, FMI ${f.fmi} - ${fmiText(f.fmi)}<br>Criticality: ${f.crit||'Medium'} | Lamp: ${f.lamp||'TBD'} | Flash: ${f.flash||'TBD'}<br><span class="muted small">Single-packet rule: this fault is sent as its own DM1 frame when its turn comes in the rotation.</span><pre>${msg}</pre><button class="danger" style="margin-top:10px" onclick="faults.splice(${i},1);duplicateWarning=''; if(rotationIndex>=uniqueFaults().length) rotationIndex=0; renderFaults();render();">Remove this fault</button></div>`})})}
 function lampBytesForFault(f){if(!f)return [0,0]; let lamp=0,flash=0; if(f.lamp==='Amber Warning Lamp')lamp|=1<<2; if(f.lamp==='Red Stop Lamp')lamp|=1<<4; if(f.lamp==='Protect Lamp')lamp|=1; if(f.lamp==='MIL')lamp|=1<<6; if(f.flash==='Slow Flash'){ if(f.lamp==='Amber Warning Lamp')flash|=1<<2; else if(f.lamp==='Red Stop Lamp')flash|=1<<4; else if(f.lamp==='Protect Lamp')flash|=1; else if(f.lamp==='MIL')flash|=1<<6; } if(f.flash==='Fast Flash'){ if(f.lamp==='Amber Warning Lamp')flash|=2<<2; else if(f.lamp==='Red Stop Lamp')flash|=2<<4; else if(f.lamp==='Protect Lamp')flash|=2; else if(f.lamp==='MIL')flash|=2<<6; } return [lamp,flash];}
 function dtcBytes(spn,fmi,oc){spn=Math.max(0,Math.min(0x7FFFF,spn|0)); fmi=fmi&0x1F; oc=Math.max(0,Math.min(126,oc|0)); return [spn&0xFF,(spn>>8)&0xFF,((spn>>16)&7)|(fmi<<3),oc&0x7F]}
 function calc(faultForFrame=null){const sa=parseHexByte(document.getElementById('sa').value), pri=parseInt(document.getElementById('priority').value)||6, oc=parseInt(document.getElementById('oc').value)||1; const canId=((pri&7)<<26)|(0xFECA<<8)|sa; const f=faultForFrame || previewFault(); if(!f){return{sa,pri,oc,canId,payload:[0,0,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF],fault:null,more:false}} const [lamp,flash]=lampBytesForFault(f); const payload=[lamp,flash,...dtcBytes(f.spn,f.fmi,oc),0xFF,0xFF]; return{sa,pri,oc,canId,payload,fault:f,more:uniqueFaults().length>1};}
