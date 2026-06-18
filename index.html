@@ -44,6 +44,12 @@
   .fault{background:var(--max-light-gray);border:1px solid var(--border);border-left:6px solid var(--max-red);border-radius:14px;padding:12px;margin:10px 0}
   .trace{height:420px;overflow:auto;font-family:Consolas,'Courier New',monospace;white-space:pre;background:var(--max-black);color:var(--max-light-gray);border:1px solid var(--max-gray);border-radius:12px;padding:12px;-webkit-overflow-scrolling:touch}
   .small{font-size:13px}.simple-card{border:1px solid var(--border);border-radius:16px;padding:14px;background:var(--max-light-gray)}
+  details.howto{padding:0;overflow:hidden}
+  details.howto summary{list-style:none;cursor:pointer;padding:14px;display:flex;justify-content:space-between;gap:10px;align-items:center;font-weight:700;color:var(--max-gray)}
+  details.howto summary::-webkit-details-marker{display:none}
+  details.howto summary:after{content:'+';display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;border-radius:50%;background:var(--max-red);color:#fff;font-weight:700}
+  details.howto[open] summary:after{content:'−'}
+  details.howto .howto-body{padding:0 14px 14px}
   .notice{border-left:6px solid var(--max-red);background:#fff5f5;padding:12px;border-radius:12px;margin:10px 0}
   @media(max-width:640px){main{padding:10px;gap:12px}section{padding:14px;border-radius:14px}.grid{grid-template-columns:1fr}.row{display:grid;grid-template-columns:1fr;align-items:stretch}.tabs{display:grid;grid-template-columns:1fr}button{width:100%}.trace{height:320px;font-size:12px}th,td{font-size:13px;padding:7px}}
 </style>
@@ -64,11 +70,14 @@
 <div id="viewer" class="view active">
 <section>
   <h2>Simple MAX-SAFE Fault Selector</h2>
-  <div class="simple-card">
-    <h3>How to use this</h3>
-    <p>Use this like a simple fault translator. Choose a <strong>fault</strong> from the list, then click <strong>Add selected fault</strong>. The tool adds it to the active fault stack and creates the DM1 message accordingly.</p>
-    <p class="muted small"><strong>SPN</strong> means the faulty component or signal. <strong>FMI</strong> means how it failed. For this customer, the trace uses <strong>single-packet DM1 only</strong>. If several faults are active, the live trace rotates through them one-by-one, one fault every second. When no faults are active, MAX-SAFE sends the no-fault DM1 frame.</p>
-  </div>
+  <details class="simple-card howto">
+    <summary><span>How to use this</span><span class="muted small">Click to expand</span></summary>
+    <div class="howto-body">
+      <p>Choose one <strong>fault</strong> from the list, then click <strong>Add selected fault</strong>. The fault is added to the active fault stack and its SPN/FMI are used to create the DM1 message.</p>
+      <p>Repeat that process to stack multiple active faults. The same exact fault is not added twice, but different faults from the list can be active at the same time.</p>
+      <p class="muted small"><strong>SPN</strong> means the faulty component or signal. <strong>FMI</strong> means how it failed. This tool uses <strong>single-packet DM1 only</strong>. If several faults are active, the live trace rotates through them one-by-one, one fault every second. When no faults are active, MAX-SAFE sends the no-fault DM1 frame.</p>
+    </div>
+  </details>
   <div class="grid" style="margin-top:14px">
     <div><label>Fault</label><select id="simpleFault" onchange="renderSimpleInfo(); render();"></select></div>
   </div>
