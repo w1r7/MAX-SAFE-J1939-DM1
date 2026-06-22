@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>MAX-SAFE DM1 Rotating Single-Packet Calculator</title>
+<title>MAX-SAFE CAN Message Calculator</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=KoHo:wght@400;500;600;700&display=swap');
   :root{
@@ -21,6 +21,8 @@
   main{padding:16px;display:grid;gap:18px;max-width:1400px;margin:auto}
   section{background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:18px;box-shadow:0 2px 12px rgba(0,0,0,.05)}
   .tabs{display:flex;gap:8px;flex-wrap:wrap}
+  .main-tabs{gap:10px}
+  .level-tabs{padding-top:4px}
   .tab{border:1px solid var(--max-gray);background:#fff;color:var(--max-gray);border-radius:999px;padding:12px 16px;font-weight:700;cursor:pointer}
   .tab.active{background:var(--max-red);border-color:var(--max-red);color:#fff}
   .view{display:none}.view.active{display:grid;gap:18px}
@@ -45,35 +47,83 @@
   .trace{height:420px;overflow:auto;font-family:Consolas,'Courier New',monospace;white-space:pre;background:var(--max-black);color:var(--max-light-gray);border:1px solid var(--max-gray);border-radius:12px;padding:12px;-webkit-overflow-scrolling:touch}
   .small{font-size:13px}.simple-card{border:1px solid var(--border);border-radius:16px;padding:14px;background:var(--max-light-gray)}
   .notice{border-left:6px solid var(--max-red);background:#fff5f5;padding:12px;border-radius:12px;margin:10px 0}
+  details.help{border:1px solid var(--border);border-radius:16px;background:var(--max-light-gray);padding:12px}
+  details.help summary{cursor:pointer;font-weight:700;color:var(--max-gray);list-style-position:inside}
+  details.help[open]{background:#fff}
+  details.help + details.help{margin-top:10px}
+
+  .common-trace{border-top:5px solid var(--max-gray)}
+  .pcan-panel{border:1px solid #BFC3C7;border-radius:12px;background:#ECEFF1;padding:10px;margin-top:12px;display:flex;gap:10px;align-items:stretch;flex-wrap:wrap;box-shadow:inset 0 1px 0 rgba(255,255,255,.7)}
+  .pcan-group{border:1px solid #C9CDD1;border-radius:10px;background:#F9FAFA;padding:8px;display:grid;gap:7px;align-content:start;min-width:145px}
+  .pcan-group-title{font-size:12px;text-transform:uppercase;letter-spacing:.04em;font-weight:700;color:var(--max-gray);padding:0 2px}
+  .pcan-toolbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .tool-btn{width:40px;height:36px;min-height:36px;padding:5px;border-radius:7px;border:1px solid #9EA5AA;background:linear-gradient(#FFFFFF,#E4E8EB);color:var(--max-gray);display:inline-flex;align-items:center;justify-content:center;box-shadow:0 1px 2px rgba(0,0,0,.12);cursor:pointer}
+  .tool-btn:hover:not(:disabled),.text-tool-btn:hover:not(:disabled){border-color:var(--max-red);box-shadow:0 0 0 2px rgba(202,32,45,.12),0 1px 2px rgba(0,0,0,.12)}
+  .tool-btn:active:not(:disabled),.text-tool-btn:active:not(:disabled){transform:translateY(1px)}
+  .tool-btn svg{width:24px;height:24px;display:block}
+  button:disabled{cursor:not-allowed;opacity:.38;filter:grayscale(1)}
+  .text-tool-btn{min-height:36px;padding:7px 14px;border-radius:7px;border:1px solid #9EA5AA;background:linear-gradient(#FFFFFF,#E4E8EB);color:var(--max-black);font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,.12)}
+  .trace-status{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--max-gray);padding:8px 10px;border:1px solid #C9CDD1;border-radius:999px;background:#fff;margin-left:auto;align-self:center}
+  .status-dot{width:10px;height:10px;border-radius:50%;background:#8B8F94;display:inline-block}
+  .trace-status.running .status-dot{background:var(--max-red)}
+  .trace-status.running{color:var(--max-red)}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  .trace-actions-note{margin:8px 0 0}
+  @media(max-width:640px){.pcan-panel{display:grid;grid-template-columns:1fr;gap:8px}.pcan-group{min-width:0}.trace-status{margin-left:0;justify-content:center}.tool-btn{width:44px}.text-tool-btn{width:auto}}
   @media(max-width:640px){main{padding:10px;gap:12px}section{padding:14px;border-radius:14px}.grid{grid-template-columns:1fr}.row{display:grid;grid-template-columns:1fr;align-items:stretch}.tabs{display:grid;grid-template-columns:1fr}button{width:100%}.trace{height:320px;font-size:12px}th,td{font-size:13px;padding:7px}}
 </style>
 </head>
 <body>
 <header>
-  <h1>MAX-SAFE DM1 Calculator and Live Trace Simulator</h1>
-  <div class="muted">Single-packet DM1 only: one active DTC is transmitted per DM1 frame for this customer integration.</div>
+  <h1>MAX-SAFE CAN Message Calculator</h1>
+  <div class="muted">J1939 standard messages and future MAX-SAFE proprietary messages in one shared CAN trace.</div>
 </header>
 <main>
 <section>
-  <div class="tabs">
-    <button class="tab active" onclick="showView(event,'viewer')">Simple Viewer</button>
-    <button class="tab" onclick="showView(event,'developer')">Developer Calculator</button>
+  <div class="tabs main-tabs">
+    <button class="tab active" onclick="showGroupedView(event,'main-view','j1939Standard')">J1939 Standard</button>
+    <button class="tab" onclick="showGroupedView(event,'main-view','maxSafeProprietary')">MAX-SAFE Proprietary</button>
   </div>
 </section>
 
-<div id="viewer" class="view active">
+<div id="j1939Standard" class="view main-view active">
+  <section>
+    <h2>J1939 Standard</h2>
+    <p class="muted small">Use this area for messages that follow standard J1939 PGNs and standard J1939 byte layouts.</p>
+    <div class="tabs level-tabs" aria-label="J1939 standard message tabs">
+      <button class="tab active" onclick="showGroupedView(event,'standard-view','standardDm1')">DM1</button>
+      <button class="tab" onclick="showGroupedView(event,'standard-view','software')">Software ID</button>
+    </div>
+  </section>
+
+  <div id="standardDm1" class="view standard-view active">
+    <section>
+      <h2>DM1 - Active Diagnostic Message</h2>
+      <details class="help">
+        <summary>How DM1 works - expand for explanation</summary>
+        <p>DM1 is the active fault message. It uses PGN <strong>65226 / 0x00FECA</strong>.</p>
+        <p class="muted small"><strong>SPN</strong> identifies what signal or component has the fault. <strong>FMI</strong> identifies how it failed. <strong>OC</strong> is the occurrence count.</p>
+        <p class="muted small">For this customer integration, the calculator uses <strong>single-packet DM1 only</strong>. If several faults are active, the shared trace rotates through them one-by-one. No DM1 BAM / multi-packet message is generated.</p>
+      </details>
+      <div class="tabs level-tabs" aria-label="DM1 view tabs" style="margin-top:14px">
+        <button class="tab active" onclick="showGroupedView(event,'dm1-view','viewer')">Simple View</button>
+        <button class="tab" onclick="showGroupedView(event,'dm1-view','developer')">Engineering View</button>
+      </div>
+    </section>
+
+    <div id="viewer" class="view dm1-view active">
 <section>
-  <h2>Simple MAX-SAFE Fault Selector</h2>
-  <div class="simple-card">
-    <h3>How to use this</h3>
-    <p>Use this like a simple fault translator. Choose the <strong>fault</strong> from the list. The tool shows the exact CAN message MAX-SAFE would transmit.</p>
-    <p class="muted small"><strong>SPN</strong> means the faulty component or signal. <strong>FMI</strong> means how it failed. For this customer, the trace uses <strong>single-packet DM1 only</strong>. If several faults are active, the live trace rotates through them one-by-one, one fault every second. When no faults are active, MAX-SAFE sends the no-fault DM1 frame.</p>
-  </div>
+  <h2>DM1 Simple View - Fault Selector</h2>
+  <details class="help">
+    <summary>How to use this view</summary>
+    <p>Choose a mapped fault from the list. The tool shows the DM1 message that MAX-SAFE would transmit.</p>
+    <p class="muted small"><strong>SPN</strong> means the faulty component or signal. <strong>FMI</strong> means how it failed. For this customer integration, DM1 is sent as <strong>single-packet only</strong>. If several faults are active, the trace rotates through them one-by-one. When no faults are active, MAX-SAFE sends the no-fault DM1 frame.</p>
+  </details>
   <div class="grid" style="margin-top:14px">
     <div><label>Fault</label><select id="simpleFault" onchange="renderSimpleInfo(); render();"></select></div>
   </div>
   <div class="row" style="margin-top:12px">
-    <button onclick="addSimpleFault()">Add selected fault</button>
+    <button onclick="addSimpleFault()">Add fault</button>
     
     <button class="danger" onclick="clearFaults()">Clear faults</button>
   </div>
@@ -81,68 +131,183 @@
   <h3>Active faults</h3>
   <div id="simpleActive"></div>
 </section>
-<section>
-  <h2>Live Trace Simulator</h2>
-  <div class="row">
-    <button onclick="startSim()">Start live trace</button>
-    <button class="secondary" onclick="stopSim()">Stop</button>
-    <button class="secondary" onclick="exportCSV()">Export CSV</button>
-    <button class="secondary" onclick="exportPCANTRC()">Export TRC (PCAN)</button>
-    <button class="danger" onclick="clearTrace()">Clear trace</button>
-  </div>
-  <p class="muted small">The live trace sends one single-packet DM1 frame per second. If multiple faults are active, it rotates through them one-by-one. You can add or remove faults while the trace is running.</p>
-  <div class="trace" id="trace"></div>
-</section>
 </div>
 
-<div id="developer" class="view">
+    <div id="developer" class="view dm1-view">
 <section>
-  <h2>1. Manual Method: How Single-Packet DM1 is Built</h2>
-  <div class="grid">
-    <div>
-      <h3>CAN ID layout</h3>
-      <table><tr><th>Bits</th><th>Field</th><th>DM1 example</th></tr><tr><td>28-26</td><td>Priority</td><td>Usually 6 -> <code>0x18xxxxxx</code></td></tr><tr><td>25</td><td>Reserved</td><td>0</td></tr><tr><td>24</td><td>Data Page</td><td>0</td></tr><tr><td>23-16</td><td>PDU Format</td><td><code>FE</code></td></tr><tr><td>15-8</td><td>PDU Specific</td><td><code>CA</code></td></tr><tr><td>7-0</td><td>Source Address</td><td>Example <code>E7</code></td></tr></table>
-      <pre>Priority 6 + PGN FECA + SA E7 = 18FECAE7</pre>
+  <details class="help">
+    <summary>DM1 Engineering View - Message Builder</summary>
+    <p class="muted small">Use this explanation when you need to understand how the DM1 CAN ID and data bytes are built.</p>
+    <div class="grid">
+      <div>
+        <h3>CAN ID layout</h3>
+        <table><tr><th>Bits</th><th>Field</th><th>DM1 example</th></tr><tr><td>28-26</td><td>Priority</td><td>Usually 6 -> <code>0x18xxxxxx</code></td></tr><tr><td>25</td><td>Reserved</td><td>0</td></tr><tr><td>24</td><td>Data Page</td><td>0</td></tr><tr><td>23-16</td><td>PDU Format</td><td><code>FE</code></td></tr><tr><td>15-8</td><td>PDU Specific</td><td><code>CA</code></td></tr><tr><td>7-0</td><td>Source Address</td><td>Example <code>E7</code></td></tr></table>
+        <pre>Priority 6 + PGN FECA + SA E7 = 18FECAE7</pre>
+      </div>
+      <div>
+        <h3>DM1 data bytes</h3>
+        <table><tr><th>Byte</th><th>Contains</th></tr><tr><td>Data[0]</td><td>Lamp status, four 2-bit fields</td></tr><tr><td>Data[1]</td><td>Flash status, four 2-bit fields</td></tr><tr><td>Data[2]</td><td>SPN bits 0-7</td></tr><tr><td>Data[3]</td><td>SPN bits 8-15</td></tr><tr><td>Data[4]</td><td>SPN bits 16-18 in bits 0-2, FMI in bits 3-7</td></tr><tr><td>Data[5]</td><td>OC in bits 0-6, CM in bit 7</td></tr><tr><td>Data[6-7]</td><td>Unused/padding for one DTC</td></tr></table>
+      </div>
     </div>
-    <div>
-      <h3>DM1 data bytes</h3>
-      <table><tr><th>Byte</th><th>Contains</th></tr><tr><td>Data[0]</td><td>Lamp status, four 2-bit fields</td></tr><tr><td>Data[1]</td><td>Flash status, four 2-bit fields</td></tr><tr><td>Data[2]</td><td>SPN bits 0-7</td></tr><tr><td>Data[3]</td><td>SPN bits 8-15</td></tr><tr><td>Data[4]</td><td>SPN bits 16-18 in bits 0-2, FMI in bits 3-7</td></tr><tr><td>Data[5]</td><td>OC in bits 0-6, CM in bit 7</td></tr><tr><td>Data[6-7]</td><td>Unused/padding for one DTC</td></tr></table>
-    </div>
-  </div>
-  <div class="notice"><strong>Customer restriction:</strong> this version does not generate BAM / multi-packet DM1. If multiple faults are active, MAX-SAFE rotates them one-by-one as single-packet DM1 frames, one fault per second. No BAM / multi-packet DM1 is generated.</div>
+    <div class="notice"><strong>Customer restriction:</strong> this version does not generate BAM / multi-packet DM1. If multiple faults are active, MAX-SAFE rotates them one-by-one as single-packet DM1 frames, one fault per second. No BAM / multi-packet DM1 is generated.</div>
+  </details>
 </section>
 <section>
-  <h2>2. Developer Inputs</h2>
+  <h2>Engineering Inputs</h2>
   <div class="grid">
     <div><label>Source Address SA hex</label><input id="sa" value="E7" maxlength="2" /></div>
     <div><label>Priority</label><input id="priority" type="number" min="0" max="7" value="6" /></div>
     <div><label>Occurrence Count OC</label><input id="oc" type="number" min="0" max="126" value="1" /></div>
     <div><label>Transmit rate ms</label><input id="rate" type="number" min="100" value="1000" /></div>
   </div>
-  <h3>Fault quick add</h3>
+  <h3>Mapped fault</h3>
   <div class="grid">
     <div><label>Fault</label><select id="devFault"></select></div>
   </div>
   <div class="row" style="margin-top:12px"><button onclick="addDevMappedFault()">Add mapped fault</button></div>
-  <h3>Manual fault add</h3>
+  <h3>Manual fault</h3>
   <div class="grid"><div><label>SPN</label><input id="newSpn" type="number" min="0" max="524287" placeholder="Enter SPN" /></div><div><label>FMI</label><select id="newFmi"></select></div><div><label>Criticality</label><select id="manualCrit"><option value="Low">Low</option><option value="Medium" selected>Medium</option><option value="High">High</option></select></div></div>
 </section>
 <section>
-  <h2>3. Active Faults</h2>
+  <h2>Active Faults</h2>
   <div class="row"><button onclick="addFault()">Add manual fault</button><button class="danger" onclick="clearFaults()">Clear faults</button></div>
   <div id="faults"></div>
 </section>
 <section>
-  <h2>4. Current DM1 Byte Breakdown</h2>
-  <h3>Byte table</h3><div id="byteTable"></div>
-  <h3>Manual calculation details</h3><pre id="manual"></pre>
-</section>
-<section>
-  <h2>5. Developer Live Trace Simulator</h2>
-  <div class="row"><button onclick="startSim()">Start</button><button class="secondary" onclick="stopSim()">Stop</button><button class="secondary" onclick="exportCSV()">Export CSV</button><button class="secondary" onclick="exportPCANTRC()">Export TRC (PCAN)</button><button class="danger" onclick="clearTrace()">Clear trace</button></div>
-  <div class="trace" id="traceDev"></div>
+  <h2>Current DM1 Byte Breakdown</h2>
+  <p class="muted small">The active DM1 output is shown above. Expand these panels only when you need the byte-level detail.</p>
+
+  <details class="help">
+    <summary>Byte table</summary>
+    <div id="byteTable"></div>
+  </details>
+
+  <details class="help">
+    <summary>Manual calculation details</summary>
+    <pre id="manual"></pre>
+  </details>
 </section>
 </div>
+  </div>
+
+  <div id="software" class="view standard-view">
+<section>
+  <h2>Software ID - PGN 65242 / SOFT</h2>
+  <details class="help">
+    <summary>How Software ID works - expand for explanation</summary>
+    <p>Enter the MAX-SAFE software number, for example <strong>MSB-5.39.89</strong>. In standard mode, the tool builds the J1939 Software Identification message.</p>
+    <p class="muted small">PGN <strong>65242 / 0x00FEDA</strong> is an <strong>on-request</strong> message, not a cyclic message. The <strong>Software button in the common trace area</strong> button simulates an external request for PGN 65242. MAX-SAFE then sends the software identification response one time only.</p>
+    <p class="muted small">Standard mode uses Byte 1 as the number of software identification fields, then sends the software text as ASCII and terminates it with <strong>*</strong>. If the software text is 6 characters or fewer, the result fits in one 8-byte CAN frame. Longer text is sent using J1939 Transport Protocol BAM + TP.DT frames.</p>
+    <p class="muted small">The software response shares the same trace buffer as DM1. If the DM1 trace is already running at 1000 ms, clicking the request button inserts the software response into the trace at the click time, between the DM1 fault lines.</p>
+  </details>
+  <div class="grid" style="margin-top:14px">
+    <div>
+      <label>Software number text</label>
+      <input id="softText" value="MSB-5.39.89" placeholder="Example: MSB-5.39.89" />
+    </div>
+    <div>
+      <label>Source Address SA hex</label>
+      <input id="softSa" value="E7" maxlength="2" />
+    </div>
+    <div>
+      <label>Priority</label>
+      <input id="softPriority" type="number" min="0" max="7" value="6" />
+    </div>
+  </div>
+  <p class="muted small">The Software Identification output updates automatically as you type. To send it into the shared CAN log, use <strong>Common CAN Trace &gt; Customer requests &gt; Software</strong>.</p>
+  <div id="softwareNotice" class="notice" style="display:none"></div>
+</section>
+
+<section>
+  <h2>Software ID Outcome</h2>
+  <div id="softwareSummary"></div>
+
+  <details class="help">
+    <summary>Payload byte explanation</summary>
+    <div id="softwareByteTable"></div>
+  </details>
+
+  <details class="help">
+    <summary>CAN frame sequence</summary>
+    <div id="softwareFrameTable"></div>
+  </details>
+
+  <details class="help">
+    <summary>Manual calculation details</summary>
+    <pre id="softwareManual"></pre>
+  </details>
+</section>
+
+</div>
+</div>
+
+<div id="maxSafeProprietary" class="view main-view">
+  <section>
+    <h2>MAX-SAFE Proprietary</h2>
+    <details class="help">
+      <summary>Purpose of this area</summary>
+      <p>This area is reserved for future MAX-SAFE proprietary PGNs and customer-specific messages.</p>
+      <p class="muted small">No proprietary PGN layout is defined in this version yet. When the proprietary message set is ready, add it here and keep the common trace section shared with the J1939 messages.</p>
+    </details>
+    <div class="notice"><strong>Status:</strong> MAX-SAFE proprietary messages are not defined yet.</div>
+  </section>
+</div>
+
+<section id="commonTraceSection" class="common-trace">
+  <h2>Common CAN Trace</h2>
+  <details class="help">
+    <summary>How the shared trace works - expand for explanation</summary>
+    <p>The trace area represents one shared CAN bus log for the whole calculator. Every tab and every future message type writes to the same trace buffer and the same export file.</p>
+    <p class="muted small"><strong>Start</strong> begins the cyclic trace source currently implemented in the calculator. At this stage, that cyclic source is DM1. The Start button is disabled while the trace is already running.</p>
+    <p class="muted small"><strong>Stop</strong> stops the cyclic trace source. It is only active while the trace is running. <strong>Reset</strong> clears the trace buffer and remains available all the time.</p>
+    <p class="muted small"><strong>Customer requests &gt; Software</strong> simulates a request for PGN 65242 and appends the Software Identification response once. If DM1 is running every 1000 ms, the SOFT response is inserted between the DM1 frames at the click time.</p>
+  </details>
+
+  <div class="pcan-panel" role="toolbar" aria-label="Common CAN trace controls">
+    <div class="pcan-group">
+      <div class="pcan-group-title">Trace</div>
+      <div class="pcan-toolbar">
+        <button id="startTraceBtn" class="tool-btn" onclick="startSim()" title="Start trace" aria-label="Start trace">
+          <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="11" fill="#CA202D" stroke="#8F141C" stroke-width="1.5"/></svg>
+          <span class="sr-only">Start trace</span>
+        </button>
+        <button id="stopTraceBtn" class="tool-btn" onclick="stopSim()" title="Stop trace" aria-label="Stop trace" disabled>
+          <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false"><rect x="9" y="9" width="14" height="14" rx="1.5" fill="#2F73B7" stroke="#1F4F80" stroke-width="1.5"/></svg>
+          <span class="sr-only">Stop trace</span>
+        </button>
+        <button id="resetTraceBtn" class="tool-btn" onclick="clearTrace()" title="Reset trace" aria-label="Reset trace">
+          <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+            <path d="M10.5 7.5v5h5" fill="none" stroke="#404042" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M11.2 12.5a8 8 0 1 1-1.1 6.5" fill="none" stroke="#404042" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+          <span class="sr-only">Reset trace</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="pcan-group">
+      <div class="pcan-group-title">Customer requests</div>
+      <div class="pcan-toolbar">
+        <button class="text-tool-btn" onclick="requestSoftwareMessage()" title="Request Software ID once" aria-label="Request Software ID once">Software</button>
+      </div>
+    </div>
+
+    <div class="pcan-group">
+      <div class="pcan-group-title">Exports</div>
+      <div class="pcan-toolbar">
+        <button class="text-tool-btn" onclick="exportPCANTRC()" title="Export PCAN TRC file" aria-label="Export PCAN TRC file">TRC</button>
+        <button class="text-tool-btn" onclick="exportCSV()" title="Export CSV file" aria-label="Export CSV file">CSV</button>
+      </div>
+    </div>
+
+    <div id="traceStatus" class="trace-status" aria-live="polite"><span class="status-dot"></span><span>Stopped</span></div>
+  </div>
+
+  <p class="muted small trace-actions-note">Start and Stop control cyclic messages. Customer request buttons append one-shot messages into the same trace, so future request types can be added beside Software without changing the common trace design.</p>
+  <div id="traceNotice" class="notice" style="display:none"></div>
+  <div class="trace" id="trace"></div>
+</section>
+
 </main>
 <script>
 const fmiOptions=[[0,'Data valid but above normal operational range - most severe'],[1,'Data valid but below normal operational range - most severe'],[2,'Data erratic, intermittent, or incorrect'],[3,'Voltage above normal or shorted high'],[4,'Voltage below normal or shorted low'],[5,'Current below normal or open circuit'],[6,'Current above normal or grounded circuit'],[7,'Mechanical system not responding properly'],[8,'Abnormal frequency, pulse width, or period'],[9,'Abnormal update rate'],[10,'Abnormal rate of change'],[11,'Root cause not known'],[12,'Bad intelligent device or component'],[13,'Out of calibration'],[14,'Special instructions'],[15,'Data valid but above normal operational range - least severe'],[16,'Data valid but above normal operational range - moderately severe'],[17,'Data valid but below normal operational range - least severe'],[18,'Data valid but below normal operational range - moderately severe'],[19,'Received network data in error'],[31,'Condition exists']];
@@ -177,8 +342,27 @@ function hex(n,w=2){return (n>>>0).toString(16).toUpperCase().padStart(w,'0')}
 function parseHexByte(s){let n=parseInt(String(s||'').trim(),16);return Number.isNaN(n)||n<0||n>255?0:n}
 function fmiText(v){return (fmiOptions.find(x=>x[0]===v)||['','Unknown FMI'])[1]}
 function fillSelect(id,options,selected=''){const el=document.getElementById(id); if(!el)return; el.innerHTML=''; options.forEach(([v,t])=>{const o=document.createElement('option');o.value=v;o.textContent=t;if(String(v)===String(selected))o.selected=true;el.appendChild(o)})}
-function showView(e,id){document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));e.target.classList.add('active')}
-function init(){fillSelect('newFmi',fmiOptions,'4'); populateFaultSelect('simpleFault'); populateFaultSelect('devFault'); document.querySelectorAll('input,select').forEach(el=>el.addEventListener('input',render)); clearTrace(); clearFaults();}
+function showGroupedView(e,groupClass,id){
+  document.querySelectorAll('.'+groupClass).forEach(v=>v.classList.remove('active'));
+  const target=document.getElementById(id);
+  if(target) target.classList.add('active');
+  const tabs=e && e.currentTarget ? e.currentTarget.closest('.tabs') : null;
+  if(tabs){tabs.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); e.currentTarget.classList.add('active');}
+}
+function showView(e,id){showGroupedView(e,'view',id)}
+function init(){
+  fillSelect('newFmi',fmiOptions,'4');
+  populateFaultSelect('simpleFault');
+  populateFaultSelect('devFault');
+  const softSa=document.getElementById('softSa'), softPriority=document.getElementById('softPriority');
+  const sa=document.getElementById('sa'), priority=document.getElementById('priority');
+  if(softSa&&sa){softSa.value=sa.value; softSa.addEventListener('input',()=>{sa.value=softSa.value; render();}); sa.addEventListener('input',()=>{softSa.value=sa.value; renderSoftware();});}
+  if(softPriority&&priority){softPriority.value=priority.value; softPriority.addEventListener('input',()=>{priority.value=softPriority.value; render();}); priority.addEventListener('input',()=>{softPriority.value=priority.value; renderSoftware();});}
+  document.querySelectorAll('input,select').forEach(el=>el.addEventListener('input',render));
+  clearTrace();
+  clearFaults();
+  renderSoftware();
+}
 function faultOptionText(f){return `${String(f.no).padStart(2,'0')}. ${f.fault} - SPN ${f.prop?'Proprietary '+f.spn:f.spn} [0x${hex(f.spn, f.spn>255?5:2)}], FMI ${f.fmi}`}
 function populateFaultSelect(id){const el=document.getElementById(id); if(!el)return; el.innerHTML='<option value="">Select fault...</option>'; faultList.forEach((f,i)=>{let o=document.createElement('option');o.value=i;o.textContent=faultOptionText(f);el.appendChild(o)})}
 function selectedFaultFrom(id){const el=document.getElementById(id); if(!el||el.value==='')return null; const src=faultList[parseInt(el.value)]; return {...src,label:`${String(src.no).padStart(2,'0')}. ${src.fault}`};}
@@ -228,33 +412,211 @@ function render(){
   }
   const man=document.getElementById('manual');
   if(man) man.textContent=m.join('\n');
+  renderSoftware();
 }
 function frame(){const f=currentRotationFault(); const c=calc(f); return [hex(c.canId,8),c.payload,f];}
-function traceBoxes(){return [document.getElementById('trace'),document.getElementById('traceDev')].filter(Boolean)}
-function appendTrace(){
+let traceSource='dm1';
+function traceBoxes(){return [document.getElementById('trace')].filter(Boolean)}
+function traceHeader(){return 'Time       CAN ID     DLC Data\n'}
+function appendLineToTrace(line){traceBoxes().forEach(b=>{b.textContent+=line+'\n'; b.scrollTop=b.scrollHeight});}
+function updateTraceButtons(){
+  const running=!!simTimer;
+  const start=document.getElementById('startTraceBtn');
+  const stop=document.getElementById('stopTraceBtn');
+  const status=document.getElementById('traceStatus');
+  if(start) start.disabled=running;
+  if(stop) stop.disabled=!running;
+  if(status){
+    status.classList.toggle('running', running);
+    const label=status.querySelector('span:last-child');
+    if(label) label.textContent=running?'Running':'Stopped';
+  }
+}
+function showTraceNotice(message, isError=false){
+  const n=document.getElementById('traceNotice');
+  if(!n)return;
+  n.style.display='block';
+  n.style.borderLeftColor=isError?'var(--max-red)':'var(--ok)';
+  n.innerHTML=message;
+}
+function ensureTraceClock(){if(simStart===null) simStart=Date.now();}
+function traceNow(){ensureTraceClock(); return (Date.now()-simStart)/1000;}
+function dm1RateMs(){const r=parseInt(document.getElementById('rate')?.value || '1000'); return Math.max(100, Number.isNaN(r)?1000:r);}
+function appendDM1Trace(){
   const u=uniqueFaults();
-  const t=((Date.now()-simStart)/1000).toFixed(3).padStart(8,' ');
+  const t=traceNow().toFixed(3).padStart(8,' ');
   if(!u.length){
     const c=calc(null);
     const id=hex(c.canId,8);
     const data=c.payload.slice();
-    const comment='No active faults';
+    const comment='DM1 - No active faults';
     const line=`${t}   ${id}   8   ${data.map(b=>hex(b)).join(' ')}   ; ${comment}`;
-    traceLog.push({time:parseFloat(t), canId:id, dlc:8, data, comment});
-    traceBoxes().forEach(b=>{b.textContent+=line+'\n'; b.scrollTop=b.scrollHeight});
+    traceLog.push({time:parseFloat(t), canId:id, dlc:8, data, comment, mode:'DM1'});
+    appendLineToTrace(line);
     return;
   }
   const [id,data,f]=frame();
-  const comment=(f&&f.label)?f.label:'';
+  const comment=(f&&f.label)?`DM1 - ${f.label}`:'DM1';
   const label=comment?`   ; ${comment}`:'';
   const line=`${t}   ${id}   8   ${data.map(b=>hex(b)).join(' ')}${label}`;
-  traceLog.push({time:parseFloat(t), canId:id, dlc:8, data:data.slice(), comment});
-  traceBoxes().forEach(b=>{b.textContent+=line+'\n'; b.scrollTop=b.scrollHeight});
+  traceLog.push({time:parseFloat(t), canId:id, dlc:8, data:data.slice(), comment, mode:'DM1'});
+  appendLineToTrace(line);
   rotationIndex=(rotationIndex+1)%uniqueFaults().length;
 }
-function startSim(){if(simTimer)return; simStart=Date.now(); appendTrace(); simTimer=setInterval(appendTrace,1000)}
-function stopSim(){clearInterval(simTimer); simTimer=null}
-function clearTrace(){traceLog=[]; traceBoxes().forEach(b=>b.textContent='Time       CAN ID     DLC Data\n')}
+function appendSoftwareTrace(buildArg=null){
+  const build=buildArg || buildSoftwareMessage();
+  const t0=traceNow();
+  if(!build.valid){
+    const notice=document.getElementById('softwareNotice');
+    if(notice){notice.style.display='block'; notice.innerHTML=`<strong>Software Identification:</strong> ${build.error}`;}
+    return;
+  }
+  build.frames.forEach((fr,idx)=>{
+    const t=(t0+idx*0.050);
+    const time=t.toFixed(3).padStart(8,' ');
+    const data=fr.data.slice();
+    const comment=`SOFT on-request - ${fr.comment}`;
+    const line=`${time}   ${fr.canId}   ${fr.dlc}   ${data.map(b=>hex(b)).join(' ')}   ; ${comment}`;
+    traceLog.push({time:t, canId:fr.canId, dlc:fr.dlc, data, comment, mode:'SOFT'});
+    appendLineToTrace(line);
+  });
+}
+function requestSoftwareMessage(){
+  renderSoftware();
+  const build=buildSoftwareMessage();
+  if(!build.valid){
+    const notice=document.getElementById('softwareNotice');
+    if(notice){notice.style.display='block'; notice.innerHTML=`<strong>${build.mode==='proprietary'?'Proprietary option':'Software Identification'}:</strong> ${build.error}`;}
+    showTraceNotice(`<strong>${build.mode==='proprietary'?'Proprietary option':'Software Identification'}:</strong> ${build.error}`, true);
+    return;
+  }
+  appendSoftwareTrace(build);
+  showTraceNotice(`<strong>Software request sent:</strong> ${build.frames.length} frame${build.frames.length===1?'':'s'} appended to the shared trace for ${build.text}.`, false);
+}
+function appendTrace(){appendDM1Trace();}
+function startSim(){
+  traceSource='dm1';
+  if(simTimer)return;
+  ensureTraceClock();
+  appendDM1Trace();
+  simTimer=setInterval(appendDM1Trace,dm1RateMs());
+  updateTraceButtons();
+}
+function stopSim(){clearInterval(simTimer); simTimer=null; updateTraceButtons();}
+function clearTrace(){
+  traceLog=[];
+  if(simTimer){simStart=Date.now();}else{simStart=null;}
+  traceBoxes().forEach(b=>b.textContent=traceHeader());
+  const n=document.getElementById('traceNotice');
+  if(n){n.style.display='none'; n.innerHTML=''; n.style.borderLeftColor='var(--max-red)';}
+  updateTraceButtons();
+}
+function sortedTraceLog(){return traceLog.slice().sort((a,b)=>a.time-b.time)}
+
+function softPriorityValue(){return parseInt(document.getElementById('softPriority')?.value || document.getElementById('priority')?.value || '6')||6}
+function softSaValue(){return parseHexByte(document.getElementById('softSa')?.value || document.getElementById('sa')?.value || 'E7')}
+function asciiBytes(text){return Array.from(text).map(ch=>ch.charCodeAt(0)&0xFF)}
+function printableAsciiOnly(text){return Array.from(text).every(ch=>{const c=ch.charCodeAt(0); return c>=32 && c<=126;})}
+function pad8(arr){const out=arr.slice(); while(out.length<8)out.push(0xFF); return out.slice(0,8)}
+function buildSoftwareMessage(){
+  const mode=document.getElementById('softMode')?.value || 'standard';
+  const text=(document.getElementById('softText')?.value || '').trim();
+  const pri=softPriorityValue();
+  const sa=softSaValue();
+  if(mode==='proprietary'){
+    return {valid:false, mode, error:'Proprietary software identification is not defined yet. Define the proprietary PGN, byte layout, scaling, and transmission rule before using this option.'};
+  }
+  if(!text){
+    return {valid:false, mode, error:'Enter a software number first.'};
+  }
+  if(text.includes('*')){
+    return {valid:false, mode, error:'Do not include * in the software number. The tool adds the standard * delimiter automatically.'};
+  }
+  if(!printableAsciiOnly(text)){
+    return {valid:false, mode, error:'Use printable single-byte ASCII characters only for the standard software identification text.'};
+  }
+  const payload=[0x01,...asciiBytes(text),0x2A];
+  const single=payload.length<=8;
+  const pgn=0x00FEDA;
+  const canId=((pri&7)<<26)|(0xFE<<16)|(0xDA<<8)|sa;
+  const frames=[];
+  if(single){
+    frames.push({canId:hex(canId,8), dlc:8, data:pad8(payload), comment:'PGN 65242 Software Identification single-frame response'});
+  }else{
+    const cmId=((pri&7)<<26)|(0xEC<<16)|(0xFF<<8)|sa;
+    const dtId=((pri&7)<<26)|(0xEB<<16)|(0xFF<<8)|sa;
+    const packets=Math.ceil(payload.length/7);
+    frames.push({canId:hex(cmId,8), dlc:8, data:[0x20,payload.length&0xFF,(payload.length>>8)&0xFF,packets,0xFF,0xDA,0xFE,0x00], comment:'TP.CM BAM for PGN 65242 / 00FEDA'});
+    for(let i=0;i<packets;i++){
+      const chunk=payload.slice(i*7,i*7+7);
+      while(chunk.length<7)chunk.push(0xFF);
+      frames.push({canId:hex(dtId,8), dlc:8, data:[i+1,...chunk], comment:`TP.DT packet ${i+1} of ${packets}`});
+    }
+  }
+  return {valid:true, mode, text, pri, sa, pgn, canId:hex(canId,8), payload, single, frames};
+}
+function renderSoftware(){
+  const notice=document.getElementById('softwareNotice');
+  const summary=document.getElementById('softwareSummary');
+  const byteTable=document.getElementById('softwareByteTable');
+  const frameTable=document.getElementById('softwareFrameTable');
+  const manual=document.getElementById('softwareManual');
+  if(!summary||!byteTable||!frameTable||!manual)return;
+  const build=buildSoftwareMessage();
+  if(!build.valid){
+    if(notice){notice.style.display='block'; notice.innerHTML=`<strong>${build.mode==='proprietary'?'Proprietary option':'Software Identification'}:</strong> ${build.error}`;}
+    summary.innerHTML='<p><span class="pill warn">Not available</span></p>';
+    byteTable.innerHTML='';
+    frameTable.innerHTML='';
+    manual.textContent=build.error;
+    return;
+  }
+  if(notice){notice.style.display='none'; notice.innerHTML='';}
+  const payloadHex=build.payload.map(b=>hex(b)).join(' ');
+  const payloadAscii=build.payload.slice(1).map(b=>b===0x2A?'*':String.fromCharCode(b)).join('');
+  summary.innerHTML=`<p><span class="pill ${build.single?'ok':'gray'}">${build.single?'Single CAN frame':'Transport Protocol BAM + TP.DT'}</span></p><pre>PGN: 65242 / 0x00FEDA / SOFT
+CAN ID: ${build.single?build.canId:'Transport Protocol frames shown below'}
+Payload length: ${build.payload.length} bytes
+Payload: ${payloadHex}
+Decoded: 1 software field = ${payloadAscii}</pre>`;
+  let rows='';
+  build.payload.forEach((b,i)=>{
+    let meaning='';
+    if(i===0) meaning='SPN 965 - Number of Software Identification Fields = 1';
+    else if(b===0x2A) meaning='ASCII * delimiter - end of software identification field';
+    else meaning=`SPN 234 - Software Identification ASCII character "${String.fromCharCode(b)}"`;
+    rows+=`<tr><td>Payload byte ${i+1}</td><td>${hex(b)}</td><td>${b.toString(2).padStart(8,'0')}</td><td>${i===0?'--':String.fromCharCode(b)}</td><td>${meaning}</td></tr>`;
+  });
+  byteTable.innerHTML=`<table><tr><th>Byte</th><th>Hex</th><th>Binary</th><th>ASCII</th><th>Meaning</th></tr>${rows}</table>`;
+  let fRows='';
+  build.frames.forEach((fr,i)=>{
+    fRows+=`<tr><td>${i+1}</td><td>${fr.canId}</td><td>${fr.dlc}</td><td>${fr.data.map(b=>hex(b)).join(' ')}</td><td>${fr.comment}</td></tr>`;
+  });
+  frameTable.innerHTML=`<table><tr><th>Frame</th><th>CAN ID</th><th>DLC</th><th>Data bytes</th><th>Meaning</th></tr>${fRows}</table>`;
+  const m=[];
+  m.push(`Software text = "${build.text}"`);
+  m.push(`Transmission rule = On request only; not cyclic`);
+  m.push(`Standard payload = Byte 1 + ASCII text + "*"`);
+  m.push(`Byte 1 = 0x01 because one software identification field is being sent`);
+  m.push(`ASCII text bytes = ${asciiBytes(build.text).map(b=>hex(b)).join(' ')}`);
+  m.push(`Delimiter "*" = 0x2A`);
+  m.push(`Payload = ${payloadHex}`);
+  m.push(`Payload length = ${build.payload.length} bytes`);
+  m.push('');
+  if(build.single){
+    m.push('Payload length is 8 bytes or less, so it fits in one CAN frame.');
+    m.push(`CAN ID = (priority << 26) | (0xFEDA << 8) | SA`);
+    m.push(`       = (${build.pri} << 26) | 0x00FEDA00 | 0x${hex(build.sa)}`);
+    m.push(`       = 0x${build.canId}`);
+    m.push(`Data   = ${build.frames[0].data.map(b=>hex(b)).join(' ')}`);
+  }else{
+    m.push('Payload length is greater than 8 bytes, so J1939 Transport Protocol is used.');
+    m.push(`TP.CM BAM announces ${build.payload.length} bytes in ${build.frames.length-1} TP.DT packet(s).`);
+    m.push('Target PGN bytes in BAM are DA FE 00, which is PGN 65242 / 0x00FEDA in little-endian byte order.');
+    build.frames.forEach((fr,i)=>m.push(`Frame ${i+1}: ${fr.canId}   ${fr.data.map(b=>hex(b)).join(' ')}`));
+  }
+  manual.textContent=m.join('\n');
+}
 
 function exportTimestamp(){
   const d=new Date();
@@ -272,15 +634,22 @@ function downloadText(filename, content, mime='text/plain'){
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+function exportBaseName(){
+  const hasSoft=traceLog.some(f=>f.mode==='SOFT');
+  const hasDm1=traceLog.some(f=>f.mode==='DM1');
+  if(hasSoft && !hasDm1) return 'MAX-SAFE Software Identification Example';
+  if(hasDm1 && !hasSoft) return 'MAX-SAFE DM1 Example';
+  return 'MAX-SAFE CAN Example';
+}
 function exportCSV(){
   if(!traceLog.length){ appendTrace(); }
   const rows=['Time_s,CAN_ID,DLC,Data,Comment'];
-  traceLog.forEach(f=>{
+  sortedTraceLog().forEach(f=>{
     const data=f.data.map(b=>hex(b)).join(' ');
     const comment=(f.comment||'').replaceAll('"','""');
     rows.push(`${f.time.toFixed(3)},${f.canId},${f.dlc},"${data}","${comment}"`);
   });
-  downloadText(`MAX-SAFE DM1 Example ${exportTimestamp()}.csv`, rows.join('\n'), 'text/csv');
+  downloadText(`${exportBaseName()} ${exportTimestamp()}.csv`, rows.join('\n'), 'text/csv');
 }
 function dateToExcelSerial(d){
   // PCAN .trc v1.1 uses an Excel/OLE Automation style start time value.
@@ -295,7 +664,7 @@ function exportPCANTRC(){
   lines.push(`;$STARTTIME=${dateToExcelSerial(now).toFixed(10)}`);
   lines.push(';');
   lines.push(`;   Start time: ${now.toLocaleString()}`);
-  lines.push(';   Generated by MAX-SAFE DM1 Calculator');
+  lines.push(';   Generated by MAX-SAFE CAN Calculator');
   lines.push(';');
   lines.push(';   Message Number');
   lines.push(';   |         Time Offset (ms)');
@@ -305,7 +674,7 @@ function exportPCANTRC(){
   lines.push(';   |         |        |        |     |   Data Bytes (hex) ...');
   lines.push(';   |         |        |        |     |   |');
   lines.push(';---+-- ------+------  +- +- --+--  +- +- -- -- -- -- -- -- -- --');
-  traceLog.forEach((f,i)=>{
+  sortedTraceLog().forEach((f,i)=>{
     const msgNo=String(i+1).padStart(6,' ')+')';
     const timeMs=(f.time*1000).toFixed(1).padStart(12,' ');
     const id=f.canId.replace(/^0+/,'') || '0';
@@ -314,7 +683,7 @@ function exportPCANTRC(){
     const comment=f.comment?` ; ${f.comment}`:'';
     lines.push(`${msgNo}${timeMs}  Rx   ${idField}  ${f.dlc}  ${data}${comment}`);
   });
-  downloadText(`MAX-SAFE DM1 Example ${exportTimestamp()}.trc`, lines.join('\r\n'), 'text/plain');
+  downloadText(`${exportBaseName()} ${exportTimestamp()}.trc`, lines.join('\r\n'), 'text/plain');
 }
 
 init();
