@@ -99,10 +99,10 @@
   .viewer-note{margin-bottom:10px}
 
 
-  /* Reference tab layout - GitHub lightweight version */
-  .reference-layout{display:grid;grid-template-columns:minmax(320px,0.95fr) minmax(420px,1.35fr);gap:16px;align-items:start;margin-top:14px}
-  .reference-list{display:grid;gap:12px}
-  .reference-category{margin:10px 0 0;font-size:13px;text-transform:uppercase;letter-spacing:.05em;font-weight:800;color:var(--max-gray);border-bottom:1px solid var(--border);padding-bottom:5px}
+  /* Reference tab layout - simple expandable preview version */
+  .reference-layout{display:block;margin-top:14px}
+  .reference-list{display:grid;gap:12px;max-width:1100px}
+  .reference-category{margin:12px 0 0;font-size:13px;text-transform:uppercase;letter-spacing:.05em;font-weight:800;color:var(--max-gray);border-bottom:1px solid var(--border);padding-bottom:5px}
   .reference-card{border:1px solid var(--border);border-radius:16px;background:#fff;padding:14px;display:grid;gap:8px;box-shadow:0 1px 5px rgba(0,0,0,.04)}
   .reference-card.active{border-color:var(--max-red);box-shadow:0 0 0 2px rgba(202,32,45,.10),0 1px 5px rgba(0,0,0,.04)}
   .reference-card h3{margin:0;font-size:17px}
@@ -110,20 +110,16 @@
   .size-pill{display:inline-block;border-radius:999px;padding:4px 10px;background:#E9ECEF;color:var(--max-gray);font-size:12px;font-weight:700}
   .reference-card .ref-buttons{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
   .reference-card .ref-buttons button,.reference-card .ref-buttons a{min-height:38px;padding:8px 12px;border-radius:10px;font-size:14px}
-  .reference-desktop-slot{position:sticky;top:12px}
-  .reference-viewer-panel{border:1px solid var(--border);border-radius:16px;background:#fff;padding:14px;box-shadow:0 1px 8px rgba(0,0,0,.06)}
+  .reference-viewer-panel{border:1px solid var(--border);border-radius:16px;background:#fff;padding:14px;margin:10px 0 2px;box-shadow:0 1px 8px rgba(0,0,0,.06)}
   .reference-viewer-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}
-  .reference-viewer-heading h3{margin:0;font-size:20px}
+  .reference-viewer-heading h3{margin:0;font-size:19px}
   .reference-viewer-actions{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
   .reference-viewer{margin-top:10px;border:1px solid var(--border);border-radius:14px;background:var(--max-light-gray);padding:12px;min-height:180px;overflow:auto}
-  .reference-frame{width:100%;height:min(68vh,720px);border:1px solid var(--border);border-radius:12px;background:#fff}
+  .reference-frame{width:100%;height:min(66vh,680px);border:1px solid var(--border);border-radius:12px;background:#fff}
   .reference-empty{border:1px dashed var(--border);border-radius:16px;background:#fff;padding:18px;color:var(--max-gray)}
-  @media(max-width:900px){
-    .reference-layout{display:grid;grid-template-columns:1fr;gap:12px}
-    .reference-desktop-slot{display:none}
-    .reference-card.mobile-open{border-color:var(--max-red)}
-    .reference-viewer-panel{margin:8px 0 4px;box-shadow:none}
+  @media(max-width:640px){
     .reference-frame{height:520px}
+    .reference-viewer-heading{display:block}
   }
 
 </style>
@@ -420,13 +416,12 @@
     <div class="notice"><strong>Internal use only:</strong> these standards and workbooks are for company use only. Do not share this calculator or reference documents outside the company.</div>
     <details class="help">
       <summary>How to use the reference library</summary>
-      <p>Choose a document from the list. On a PC, the viewer opens on the right. On a phone, the viewer opens directly under the selected document.</p>
-      <p class="muted small">Only one document viewer is shown at a time. PDF viewing depends on the browser. Excel preview is limited for speed; use Download or the live workbook link for full Excel access.</p>
+      <p>Press <strong>Preview</strong> on a document to expand it. Press <strong>Hide preview</strong> to close it again.</p>
+      <p class="muted small">Only one document preview is shown at a time. After a preview opens, use <strong>Open</strong> or <strong>Download</strong> from inside the preview. Excel preview is limited for speed; download the workbook for full access.</p>
     </details>
 
     <div class="reference-layout">
       <div id="referenceCards" class="reference-list"></div>
-      <div id="referenceViewerDesktopSlot" class="reference-desktop-slot"></div>
     </div>
   </section>
 </div>
@@ -950,14 +945,13 @@ function initReference(){
       const typeLabel = doc.type==='xlsx' ? 'EXCEL' : (doc.type==='link' ? 'LIVE' : doc.type.toUpperCase());
       const safeId = escapeHtml(doc.id);
       const canPreview = doc.type==='pdf' || doc.type==='xlsx';
+      const buttonText = canPreview ? 'Preview' : 'Open live sheet';
       cardHtml += `<div class="reference-card" id="ref-card-${safeId}" data-doc-id="${safeId}">
         <div class="reference-meta"><span class="pill gray type-pill">${escapeHtml(typeLabel)}</span><span class="size-pill">${escapeHtml(doc.size || '')}</span></div>
         <h3>${escapeHtml(doc.title)}</h3>
         <p class="muted small">${escapeHtml(doc.summary)}</p>
         <div class="ref-buttons">
-          ${canPreview ? `<button class="secondary" onclick="showReferenceDocument('${safeId}')">View</button>` : ''}
-          <a class="link-button secondary" href="${escapeHtml(doc.file)}" target="_blank" rel="noopener">Open</a>
-          ${doc.type==='link' ? '' : `<a class="link-button" href="${escapeHtml(doc.file)}" download>Download</a>`}
+          ${canPreview ? `<button class="secondary preview-button" id="preview-btn-${safeId}" onclick="toggleReferenceDocument('${safeId}')">${buttonText}</button>` : `<a class="link-button secondary" href="${escapeHtml(doc.file)}" target="_blank" rel="noopener">${buttonText}</a>`}
         </div>
       </div>`;
     });
@@ -966,29 +960,30 @@ function initReference(){
   referenceViewerPanel=document.createElement('div');
   referenceViewerPanel.id='referenceViewerPanel';
   referenceViewerPanel.className='reference-viewer-panel';
-  referenceViewerPanel.innerHTML='<div class="reference-empty">Select <strong>View</strong> on a reference document to preview it here.</div>';
   referenceInitialized=true;
-  if(window.matchMedia('(min-width: 901px)').matches){
-    showReferenceDocument(referenceDocuments.find(d=>d.type==='pdf')?.id || referenceDocuments[0]?.id || '');
-  }
 }
 
-function updateReferenceLayout(){
-  if(!referenceInitialized || !referenceViewerPanel) return;
-  const desktopSlot=document.getElementById('referenceViewerDesktopSlot');
-  const isDesktop=window.matchMedia('(min-width: 901px)').matches;
-  if(isDesktop && desktopSlot && referenceViewerPanel.parentElement!==desktopSlot){
-    desktopSlot.appendChild(referenceViewerPanel);
-  }else if(!isDesktop && currentReferenceId){
-    const card=document.getElementById(`ref-card-${currentReferenceId}`);
-    if(card && referenceViewerPanel.parentElement!==card.parentElement){
-      card.insertAdjacentElement('afterend', referenceViewerPanel);
-    }
+function toggleReferenceDocument(id){
+  const doc=referenceDocuments.find(d=>d.id===id);
+  if(!doc || doc.type==='link') return;
+  if(currentReferenceId===id){
+    closeReferencePreview();
+    return;
+  }
+  showReferenceDocument(id);
+}
+
+function closeReferencePreview(){
+  currentReferenceId='';
+  document.querySelectorAll('.reference-card').forEach(card=>card.classList.remove('active','mobile-open'));
+  document.querySelectorAll('.preview-button').forEach(btn=>btn.textContent='Preview');
+  if(referenceViewerPanel && referenceViewerPanel.parentElement){
+    referenceViewerPanel.remove();
   }
 }
 
 function showReferenceDocument(id){
-  const doc=referenceDocuments.find(d=>d.id===id) || referenceDocuments.find(d=>d.type==='pdf') || referenceDocuments[0];
+  const doc=referenceDocuments.find(d=>d.id===id);
   if(!doc || doc.type==='link') return;
   currentReferenceId=doc.id;
   document.querySelectorAll('.reference-card').forEach(card=>{
@@ -996,6 +991,9 @@ function showReferenceDocument(id){
     card.classList.toggle('active', active);
     card.classList.toggle('mobile-open', active);
   });
+  document.querySelectorAll('.preview-button').forEach(btn=>btn.textContent='Preview');
+  const activeButton=document.getElementById(`preview-btn-${doc.id}`);
+  if(activeButton) activeButton.textContent='Hide preview';
   if(!referenceViewerPanel){
     referenceViewerPanel=document.createElement('div');
     referenceViewerPanel.id='referenceViewerPanel';
@@ -1005,7 +1003,7 @@ function showReferenceDocument(id){
   const downloadText = doc.type==='xlsx' ? 'Download workbook' : 'Download PDF';
   let viewerContent='';
   if(doc.type==='pdf'){
-    viewerContent=`<p class="muted small viewer-note">PDF preview. Use <strong>Open PDF</strong> or <strong>Download PDF</strong> if your browser does not display the preview.</p><iframe class="reference-frame" src="${escapeHtml(doc.file)}" title="${escapeHtml(doc.title)}"></iframe>`;
+    viewerContent=`<p class="muted small viewer-note">PDF preview. Use <strong>${openText}</strong> or <strong>${downloadText}</strong> if your browser does not display the preview.</p><iframe class="reference-frame" src="${escapeHtml(doc.file)}" title="${escapeHtml(doc.title)}"></iframe>`;
   }else if(doc.type==='xlsx'){
     viewerContent=`<p class="muted small viewer-note"><strong>Limited preview:</strong> only the first rows and columns are shown here for speed. Download the workbook for full filtering and editing in Excel.</p><div id="excelPreview"></div>`;
   }
@@ -1022,18 +1020,12 @@ function showReferenceDocument(id){
       <a class="link-button" href="${escapeHtml(doc.file)}" download>${downloadText}</a>
     </div>
     <div id="referenceViewer" class="reference-viewer">${viewerContent}</div>`;
-  const isDesktop=window.matchMedia('(min-width: 901px)').matches;
-  const desktopSlot=document.getElementById('referenceViewerDesktopSlot');
-  if(isDesktop && desktopSlot){
-    desktopSlot.appendChild(referenceViewerPanel);
-  }else{
-    const card=document.getElementById(`ref-card-${doc.id}`);
-    if(card) card.insertAdjacentElement('afterend', referenceViewerPanel);
-  }
+  const card=document.getElementById(`ref-card-${doc.id}`);
+  if(card) card.insertAdjacentElement('afterend', referenceViewerPanel);
   if(doc.type==='xlsx') renderWorkbookPreview(0);
 }
 
-window.addEventListener('resize', updateReferenceLayout);
+function updateReferenceLayout(){}
 
 function renderWorkbookPreview(sheetIndex){
   const target=document.getElementById('excelPreview');
