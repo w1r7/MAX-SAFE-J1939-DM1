@@ -118,6 +118,10 @@
   .reference-viewer{margin-top:10px;border:1px solid var(--border);border-radius:14px;background:var(--max-light-gray);padding:12px;min-height:180px;overflow:auto}
   .reference-frame{width:100%;height:min(66vh,680px);border:1px solid var(--border);border-radius:12px;background:#fff}
   .reference-empty{border:1px dashed var(--border);border-radius:16px;background:#fff;padding:18px;color:var(--max-gray)}
+
+  .reference-inline-preview{display:none;margin-top:10px}
+  .reference-card.active .reference-inline-preview{display:block}
+  .reference-inline-actions{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
   @media(max-width:640px){
     .reference-frame{height:520px}
     .reference-viewer-heading{display:block}
@@ -1395,6 +1399,7 @@ function initReference(){
         <div class="ref-buttons">
           ${canPreview ? `<button class="secondary preview-button" id="preview-btn-${safeId}" onclick="toggleReferenceDocument('${safeId}')">${buttonText}</button>` : `<a class="link-button secondary" href="${escapeHtml(doc.file)}" target="_blank" rel="noopener">${buttonText}</a>`}
         </div>
+        <div class="reference-inline-preview" id="ref-preview-holder-${safeId}"></div>
       </div>`;
     });
   });
@@ -1419,6 +1424,7 @@ function closeReferencePreview(){
   currentReferenceId='';
   document.querySelectorAll('.reference-card').forEach(card=>card.classList.remove('active','mobile-open'));
   document.querySelectorAll('.preview-button').forEach(btn=>btn.textContent='Preview');
+  document.querySelectorAll('.reference-inline-preview').forEach(holder=>holder.innerHTML='');
   if(referenceViewerPanel && referenceViewerPanel.parentElement){
     referenceViewerPanel.remove();
   }
@@ -1434,13 +1440,9 @@ function showReferenceDocument(id){
     card.classList.toggle('mobile-open', active);
   });
   document.querySelectorAll('.preview-button').forEach(btn=>btn.textContent='Preview');
+  document.querySelectorAll('.reference-inline-preview').forEach(holder=>holder.innerHTML='');
   const activeButton=document.getElementById(`preview-btn-${doc.id}`);
   if(activeButton) activeButton.textContent='Hide preview';
-  if(!referenceViewerPanel){
-    referenceViewerPanel=document.createElement('div');
-    referenceViewerPanel.id='referenceViewerPanel';
-    referenceViewerPanel.className='reference-viewer-panel';
-  }
   const openText = doc.type==='xlsx' ? 'Open workbook' : 'Open PDF';
   const downloadText = doc.type==='xlsx' ? 'Download workbook' : 'Download PDF';
   let viewerContent='';
@@ -1449,21 +1451,18 @@ function showReferenceDocument(id){
   }else if(doc.type==='xlsx'){
     viewerContent=`<p class="muted small viewer-note"><strong>Limited preview:</strong> only the first rows and columns are shown here for speed. Download the workbook for full filtering and editing in Excel.</p><div id="excelPreview"></div>`;
   }
-  referenceViewerPanel.innerHTML=`
-    <div class="reference-viewer-heading">
-      <div>
-        <h3>${escapeHtml(doc.title)}</h3>
-        <div class="reference-meta" style="margin-top:6px"><span class="pill gray">${escapeHtml(doc.type==='xlsx'?'EXCEL':doc.type.toUpperCase())}</span><span class="size-pill">${escapeHtml(doc.size || '')}</span></div>
+  const holder=document.getElementById(`ref-preview-holder-${doc.id}`);
+  if(holder){
+    holder.innerHTML=`
+      <div class="reference-inline-actions">
+        <a class="link-button secondary" href="${escapeHtml(doc.file)}" target="_blank" rel="noopener">${openText}</a>
+        <a class="link-button" href="${escapeHtml(doc.file)}" download>${downloadText}</a>
       </div>
-    </div>
-    <p class="muted small">${escapeHtml(doc.summary)}</p>
-    <div class="reference-viewer-actions">
-      <a class="link-button secondary" href="${escapeHtml(doc.file)}" target="_blank" rel="noopener">${openText}</a>
-      <a class="link-button" href="${escapeHtml(doc.file)}" download>${downloadText}</a>
-    </div>
-    <div id="referenceViewer" class="reference-viewer">${viewerContent}</div>`;
-  const card=document.getElementById(`ref-card-${doc.id}`);
-  if(card) card.insertAdjacentElement('afterend', referenceViewerPanel);
+      <div id="referenceViewer" class="reference-viewer">${viewerContent}</div>`;
+  }
+  if(referenceViewerPanel && referenceViewerPanel.parentElement){
+    referenceViewerPanel.remove();
+  }
   if(doc.type==='xlsx') renderWorkbookPreview(0);
 }
 
