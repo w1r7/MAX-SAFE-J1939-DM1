@@ -171,6 +171,11 @@
   .fault-options{display:grid;gap:6px;padding:10px 12px;}
   .fault-option{display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.25;}
   .fault-option input{width:auto;min-height:auto;margin-top:2px;}
+  .speed-control{display:grid;gap:8px}
+  .speed-control-row{display:flex;align-items:center;gap:10px}
+  .speed-control-row input[type=range]{flex:1;padding:0}
+  .speed-control-row input[type=number]{width:105px}
+  .unit-hint{font-weight:700;color:var(--max-gray);white-space:nowrap}
 </style>
 </head>
 <body>
@@ -456,6 +461,7 @@
 <div><label>Door Switch</label><select id="propDoorSwitch"><option value="0">00 - All doors closed</option><option value="1">01 - At least 1 door is open</option><option disabled="" value="2">10 - Reserved</option><option value="3">11 - Not available</option></select></div>
 <div><label>Operator Message</label><select id="propOperatorMessage"></select></div>
 <div><label>Seat Belt Switch</label><select id="propSeatBelt"><option value="0">00 - Seat belt unbuckle</option><option value="1">01 - Seat belt buckled</option><option disabled="" value="2">10 - Reserved</option><option value="3">11 - Not available</option></select></div>
+<div><label>Wheel Based Speed</label><div class="speed-control"><div class="speed-control-row"><input id="propWheelSpeedRange" type="range" min="0" max="254" value="0" oninput="syncPropWheelSpeed(this)" /><input id="propWheelSpeed" type="number" min="0" max="254" value="0" oninput="syncPropWheelSpeed(this)" /><span class="unit-hint">km/h</span></div><p class="muted small" style="margin:0">MSB1 Byte 5. Valid range: 0-254 km/h. Raw value FF is reserved for not available.</p></div></div>
 <div class="readonly-card"><label>Heartbeat Counter</label><div class="readonly-value" id="propHeartbeatDisplay">Auto: 0</div></div>
 </div>
 </section>
@@ -1169,12 +1175,25 @@ function initProprietary(){
     holder.dataset.ready='1';
   }
 }
+function syncPropWheelSpeed(src){
+  const n=clampRange(parseInt(src?.value ?? '0',10)||0,0,254);
+  const range=document.getElementById('propWheelSpeedRange');
+  const number=document.getElementById('propWheelSpeed');
+  if(range) range.value=String(n);
+  if(number) number.value=String(n);
+  renderProprietary();
+}
 function buildPropM1(opts={}){
   const parking=clampRange(numInput('propParkingBrake'),0,3);
   const seat=clampRange(numInput('propSeatSwitch'),0,3);
   const door=clampRange(numInput('propDoorSwitch'),0,3);
   const operator=clampRange(numInput('propOperatorMessage'),0,31);
   const seatBelt=clampRange(numInput('propSeatBelt'),0,3);
+  const wheelSpeed=clampRange(numInput('propWheelSpeed'),0,254);
+  const range=document.getElementById('propWheelSpeedRange');
+  const number=document.getElementById('propWheelSpeed');
+  if(range && range.value!==String(wheelSpeed)) range.value=String(wheelSpeed);
+  if(number && number.value!==String(wheelSpeed)) number.value=String(wheelSpeed);
   const active=isChecked('propM1Active');
   const heartbeat=opts.consumeHeartbeat && active ? nextMsb1Heartbeat() : currentMsb1Heartbeat();
   const payload=active?[
@@ -1182,9 +1201,9 @@ function buildPropM1(opts={}){
     0xFC | (door&0x03),
     0xE0 | (operator&0x1F),
     0x3F | ((seatBelt&0x03)<<6),
-    0xFF,0xFF,0xFF,heartbeat&0xFF
+    wheelSpeed&0xFF,0xFF,0xFF,heartbeat&0xFF
   ]:inactivePayload();
-  return {...buildFixedFrame(0x00FFC0,payload,active?'MAX-SAFE Proprietary Status: MSB1':'MAX-SAFE Proprietary Status: MSB1 - inactive / not available'), active, parking, seat, door, operator, seatBelt, heartbeat};
+  return {...buildFixedFrame(0x00FFC0,payload,active?'MAX-SAFE Proprietary Status: MSB1':'MAX-SAFE Proprietary Status: MSB1 - inactive / not available'), active, parking, seat, door, operator, seatBelt, wheelSpeed, heartbeat};
 }
 function renderPropM1(){
   const b=buildPropM1(); renderPropFrameSummary('propM1Summary',b);
@@ -1194,7 +1213,7 @@ function renderPropM1(){
     {byte:'Byte 2',hex:hex(b.payload[1]),binary:b.payload[1].toString(2).padStart(8,'0'),signal:'Door Switch',meaning:b.active?`bits1-2 Door=${b.door.toString(2).padStart(2,'0')}; bits3-8 not defined = 1`:'Message inactive: FF = not available'},
     {byte:'Byte 3',hex:hex(b.payload[2]),binary:b.payload[2].toString(2).padStart(8,'0'),signal:'Operator Message',meaning:b.active?`bits1-5 Operator=${b.operator.toString(2).padStart(5,'0')}; bits6-8 not defined = 1`:'Message inactive: FF = not available'},
     {byte:'Byte 4',hex:hex(b.payload[3]),binary:b.payload[3].toString(2).padStart(8,'0'),signal:'Seat Belt Switch',meaning:b.active?`bits7-8 Seat Belt=${b.seatBelt.toString(2).padStart(2,'0')}; bits1-6 not defined = 1`:'Message inactive: FF = not available'},
-    {byte:'Byte 5',hex:hex(b.payload[4]),binary:b.payload[4].toString(2).padStart(8,'0'),signal:'Not defined',meaning:notAvailableMeaning(b.active)},
+    {byte:'Byte 5',hex:hex(b.payload[4]),binary:b.payload[4].toString(2).padStart(8,'0'),signal:'Wheel Based Speed',meaning:b.active?`Wheel based speed = ${b.wheelSpeed} km/h; 1 km/h per bit; offset 0; FF = not available`:'Message inactive: FF = not available'},
     {byte:'Byte 6',hex:hex(b.payload[5]),binary:b.payload[5].toString(2).padStart(8,'0'),signal:'Not defined',meaning:notAvailableMeaning(b.active)},
     {byte:'Byte 7',hex:hex(b.payload[6]),binary:b.payload[6].toString(2).padStart(8,'0'),signal:'Not defined',meaning:notAvailableMeaning(b.active)},
     {byte:'Byte 8',hex:hex(b.payload[7]),binary:b.payload[7].toString(2).padStart(8,'0'),signal:'Heartbeat Counter',meaning:b.active?`Heartbeat auto counter = ${b.heartbeat}; next counter will increment after each transmitted MSB1 frame and wrap after 254`:'Message inactive: FF = not available'}
@@ -1209,6 +1228,7 @@ function renderPropM1(){
     `Byte 2 = 0xFC | Door Switch = 0x${hex(b.payload[1])}`,
     `Byte 3 = 0xE0 | Operator Message = 0x${hex(b.payload[2])}`,
     `Byte 4 = 0x3F | (Seat Belt << 6) = 0x${hex(b.payload[3])}`,
+    `Byte 5 = Wheel Based Speed = ${b.active?b.wheelSpeed:'not available'} km/h = 0x${hex(b.payload[4])}`,
     `Byte 8 = auto Heartbeat Counter = 0x${hex(b.payload[7])}`,
     `Data = ${b.payload.map(x=>hex(x)).join(' ')}`
   ]);
