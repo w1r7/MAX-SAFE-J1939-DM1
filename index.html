@@ -1467,6 +1467,8 @@ function showReferenceDocument(id){
   if(doc.type==='xlsx') renderWorkbookPreview(0);
 }
 
+function updateReferenceLayout(){}
+
 function renderWorkbookPreview(sheetIndex){
   const target=document.getElementById('excelPreview');
   if(!target) return;
