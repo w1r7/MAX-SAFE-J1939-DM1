@@ -458,7 +458,7 @@
 <div><label>Operator Message</label><select id="propOperatorMessage"></select></div>
 <div><label>Seat Belt Switch</label><select id="propSeatBelt"><option value="0">00 - Seat belt unbuckle</option><option value="1">01 - Seat belt buckled</option><option disabled="" value="2">10 - Reserved</option><option value="3">11 - Not available</option></select></div>
 <div><label>Wheel Based Speed</label><div class="speed-control"><div class="speed-control-row"><input id="propWheelSpeedRange" type="range" min="0" max="254" value="0" oninput="syncPropWheelSpeed(this)" /><input id="propWheelSpeed" type="number" min="0" max="254" value="0" oninput="syncPropWheelSpeed(this)" /><span class="unit-hint">km/h</span></div><p class="muted small" style="margin:0">MSB1 Byte 5. Valid range: 0-254 km/h. Raw value FF is reserved for not available.</p></div></div>
-<div class="readonly-card"><label>Heartbeat Counter</label><div class="readonly-value" id="propHeartbeatDisplay">Auto: 0</div></div>
+<div class="readonly-card"><label>Heartbeat Counter</label><div class="readonly-value" id="propHeartbeatDisplay">Next transmit: 0 (stopped)</div><p class="muted small" style="margin:6px 0 0">MSB1 Byte 8. Auto-increments with each transmitted MSB1 frame and freezes when CAN TX is stopped.</p></div>
 </div>
 </section>
 <section>
@@ -526,25 +526,25 @@
 </section>
 </div>
 <section class="common-trace" id="commonTraceSection">
-<h2>Common CAN Trace</h2>
+<h2>CAN Transmission and Trace</h2>
 <details class="help">
 <summary>How the shared trace works - expand for explanation</summary>
-<p>The trace area represents one shared CAN bus log for the whole calculator. Every tab writes to the same trace buffer and the same export file.</p>
-<p class="muted small">Start begins trace generation. Use the filters to show or hide each message.</p>
-<p class="muted small">Use the <strong>Trace filters</strong> to include or exclude each cyclic message from the trace. CM1, MSB1, and MSB2 are always active; the filters only control whether they are written into the trace.</p>
-<p class="muted small"><strong>Customer requests</strong> simulate external request/response behavior. Start the trace first, then request <strong>Software</strong>, <strong>Serial</strong>, or <strong>MSB3</strong> to append the response into the running trace.</p>
+<p>This panel starts and stops the simulated CAN transmitter and records the selected messages into one shared trace buffer and export file.</p>
+<p class="muted small"><strong>Start</strong> begins simulated CAN transmission and trace recording. <strong>Stop</strong> stops transmission and freezes live counters such as the MSB1 heartbeat.</p>
+<p class="muted small">CM1, MSB1, and MSB2 are always active while the transmitter is running. <strong>Trace filters</strong> only control what is written to the trace window and export; they do not turn messages on or off.</p>
+<p class="muted small"><strong>Customer requests</strong> simulate external request/response behavior. Start CAN transmission first, then request <strong>Software</strong>, <strong>Serial</strong>, or <strong>MSB3</strong> to append the response into the running trace.</p>
 </details>
 <div aria-label="Common CAN trace controls" class="pcan-panel" role="toolbar">
 <div class="pcan-group">
-<div class="pcan-group-title">Trace</div>
+<div class="pcan-group-title">CAN TX / Trace</div>
 <div class="pcan-toolbar">
-<button aria-label="Start trace" class="tool-btn" id="startTraceBtn" onclick="startSim()" title="Start trace">
+<button aria-label="Start CAN transmission and trace" class="tool-btn" id="startTraceBtn" onclick="startSim()" title="Start CAN transmission and trace">
 <svg aria-hidden="true" focusable="false" viewbox="0 0 32 32"><circle cx="16" cy="16" fill="#CA202D" r="11" stroke="#8F141C" stroke-width="1.5"></circle></svg>
-<span class="sr-only">Start trace</span>
+<span class="sr-only">Start CAN transmission and trace</span>
 </button>
-<button aria-label="Stop trace" class="tool-btn" disabled="" id="stopTraceBtn" onclick="stopSim()" title="Stop trace">
+<button aria-label="Stop CAN transmission and trace" class="tool-btn" disabled="" id="stopTraceBtn" onclick="stopSim()" title="Stop CAN transmission and trace">
 <svg aria-hidden="true" focusable="false" viewbox="0 0 32 32"><rect fill="#2F73B7" height="14" rx="1.5" stroke="#1F4F80" stroke-width="1.5" width="14" x="9" y="9"></rect></svg>
-<span class="sr-only">Stop trace</span>
+<span class="sr-only">Stop CAN transmission and trace</span>
 </button>
 <button aria-label="Reset trace" class="tool-btn" id="resetTraceBtn" onclick="clearTrace()" title="Reset trace">
 <svg aria-hidden="true" focusable="false" viewbox="0 0 32 32">
@@ -590,7 +590,7 @@
 </div>
 <div aria-live="polite" class="trace-status" id="traceStatus"><span class="status-dot"></span><span>Stopped</span></div>
 </div>
-<p class="muted small trace-actions-note">Start and Stop control cyclic messages. Trace filters decide which cyclic messages are logged. Request buttons only append responses while the trace is running. Customer request mode lets you choose either J1939 Software/Serial or MAX-SAFE MSB3.</p>
+<p class="muted small trace-actions-note">Start and Stop control simulated CAN transmission and trace recording. Cyclic messages keep transmitting while running; trace filters only decide which frames are shown and exported. Request buttons only append responses while the transmitter is running. Customer request mode lets you choose either J1939 Software/Serial or MAX-SAFE MSB3.</p>
 <div class="notice" id="traceNotice" style="display:none"></div>
 <div class="trace" id="trace"></div>
 </section>
@@ -737,8 +737,9 @@ function updateTraceButtons(){
   if(status){
     status.classList.toggle('running', running);
     const label=status.querySelector('span:last-child');
-    if(label) label.textContent=running?'Running':'Stopped';
+    if(label) label.textContent=running?'Transmitting':'Stopped';
   }
+  updateMsb1HeartbeatDisplay();
 }
 function showTraceNotice(message, isError=false){
   const n=document.getElementById('traceNotice');
@@ -828,7 +829,7 @@ function appendSerialTrace(buildArg=null){
 function currentRequestMode(){const el=document.getElementById('requestMode'); return el ? el.value : 'j1939';}
 function requireRunningTrace(requestName){
   if(!simTimer){
-    showTraceNotice(`<strong>${escapeHtml(requestName)} request not sent:</strong> Start the trace first to see the message response in the trace.`, true);
+    showTraceNotice(`<strong>${escapeHtml(requestName)} request not sent:</strong> Start CAN transmission first to see the message response in the running trace.`, true);
     return false;
   }
   return true;
@@ -903,13 +904,30 @@ function appendCyclicFrame(build,mode){
   appendLineToTrace(line);
 }
 let lastDm1Ms=-999999;
+function advanceDM1RotationSilently(){
+  const u=uniqueFaults();
+  if(u.length) rotationIndex=(rotationIndex+1)%u.length;
+}
 function appendCyclicTick(){
   ensureTraceClock();
   const elapsedMs=Date.now()-simStart;
-  if(traceFilterEnabled('traceFilterCm1')) appendCyclicFrame(buildCM1(),'CM1');
-  if(traceFilterEnabled('traceFilterMSB1')) appendCyclicFrame(buildPropM1({consumeHeartbeat:true}),'MSB1');
-  if(traceFilterEnabled('traceFilterMSB2')) appendCyclicFrame(buildPropM2(),'MSB2');
-  if(traceFilterEnabled('traceFilterDm1') && elapsedMs-lastDm1Ms>=dm1RateMs()-5){appendDM1Trace(); lastDm1Ms=elapsedMs;}
+
+  // Build all cyclic messages while CAN TX is running. Trace filters only control logging.
+  const cm1=buildCM1();
+  if(traceFilterEnabled('traceFilterCm1')) appendCyclicFrame(cm1,'CM1');
+
+  const msb1=buildPropM1({consumeHeartbeat:true});
+  if(traceFilterEnabled('traceFilterMSB1')) appendCyclicFrame(msb1,'MSB1');
+
+  const msb2=buildPropM2();
+  if(traceFilterEnabled('traceFilterMSB2')) appendCyclicFrame(msb2,'MSB2');
+
+  if(elapsedMs-lastDm1Ms>=dm1RateMs()-5){
+    if(traceFilterEnabled('traceFilterDm1')) appendDM1Trace();
+    else advanceDM1RotationSilently();
+    lastDm1Ms=elapsedMs;
+  }
+  updateMsb1HeartbeatDisplay();
 }
 function appendTrace(){appendCyclicTick();}
 function startSim(){
@@ -917,11 +935,11 @@ function startSim(){
   if(simTimer)return;
   ensureTraceClock();
   lastDm1Ms=-dm1RateMs();
-  appendCyclicTick();
   simTimer=setInterval(appendCyclicTick,100);
+  appendCyclicTick();
   updateTraceButtons();
 }
-function stopSim(){clearInterval(simTimer); simTimer=null; updateTraceButtons();}
+function stopSim(){clearInterval(simTimer); simTimer=null; updateTraceButtons(); updateMsb1HeartbeatDisplay();}
 function clearTrace(){
   traceLog=[];
   msb1HeartbeatCounter=0;
@@ -931,6 +949,7 @@ function clearTrace(){
   if(n){n.style.display='none'; n.innerHTML=''; n.style.borderLeftColor='var(--max-red)';}
   updateTraceButtons();
   updateRequestButtons();
+  updateMsb1HeartbeatDisplay();
 }
 function sortedTraceLog(){return traceLog.slice().sort((a,b)=>a.time-b.time)}
 
@@ -1134,6 +1153,14 @@ const FIXED_SA=0xE7;
 let msb1HeartbeatCounter=0;
 function nextMsb1Heartbeat(){const v=msb1HeartbeatCounter; msb1HeartbeatCounter = (msb1HeartbeatCounter>=254) ? 0 : msb1HeartbeatCounter+1; return v;}
 function currentMsb1Heartbeat(){return msb1HeartbeatCounter;}
+function updateMsb1HeartbeatDisplay(){
+  const hb=document.getElementById('propHeartbeatDisplay');
+  if(!hb) return;
+  const running=!!simTimer;
+  const shown=traceFilterEnabled('traceFilterMSB1');
+  const suffix=running ? (shown ? 'CAN TX running, shown in trace' : 'CAN TX running, hidden by trace filter') : 'stopped';
+  hb.textContent=`Next transmit: ${currentMsb1Heartbeat()} (${suffix})`;
+}
 function buildFixedFrame(pgn,payload,name){return buildPropFrame(pgn,FIXED_PRI,FIXED_SA,payload,name);}
 function notAvailableMeaning(active){return active?'Not defined bits/bytes are set to 1 (Not available).':'Message inactive: FF = not available';}
 function showFormatNote(){
@@ -1273,7 +1300,7 @@ function buildPropM1(opts={}){
 }
 function renderPropM1(){
   const b=buildPropM1(); renderPropFrameSummary('propM1Summary',b);
-  const hb=document.getElementById('propHeartbeatDisplay'); if(hb) hb.textContent=`Auto: ${currentMsb1Heartbeat()} (next transmitted)`;
+  updateMsb1HeartbeatDisplay();
   renderPropByteTable('propM1ByteTable',[
     {byte:'Byte 1',hex:hex(b.payload[0]),binary:b.payload[0].toString(2).padStart(8,'0'),signal:'Seat Switch + Parking Brake Switch',meaning:b.active?`bits1-2 Seat=${b.seat.toString(2).padStart(2,'0')}; bits3-4 Parking=${b.parking.toString(2).padStart(2,'0')}; bits5-8 not defined = 1`:'Message inactive: FF = not available'},
     {byte:'Byte 2',hex:hex(b.payload[1]),binary:b.payload[1].toString(2).padStart(8,'0'),signal:'Door Switch',meaning:b.active?`bits1-2 Door=${b.door.toString(2).padStart(2,'0')}; bits3-8 not defined = 1`:'Message inactive: FF = not available'},
@@ -1282,7 +1309,7 @@ function renderPropM1(){
     {byte:'Byte 5',hex:hex(b.payload[4]),binary:b.payload[4].toString(2).padStart(8,'0'),signal:'Wheel Based Speed',meaning:b.active?`Wheel based speed = ${b.wheelSpeed} km/h; 1 km/h per bit; offset 0; FF = not available`:'Message inactive: FF = not available'},
     {byte:'Byte 6',hex:hex(b.payload[5]),binary:b.payload[5].toString(2).padStart(8,'0'),signal:'Not defined',meaning:notAvailableMeaning(b.active)},
     {byte:'Byte 7',hex:hex(b.payload[6]),binary:b.payload[6].toString(2).padStart(8,'0'),signal:'Not defined',meaning:notAvailableMeaning(b.active)},
-    {byte:'Byte 8',hex:hex(b.payload[7]),binary:b.payload[7].toString(2).padStart(8,'0'),signal:'Heartbeat Counter',meaning:b.active?`Heartbeat auto counter = ${b.heartbeat}; next counter will increment after each transmitted MSB1 frame and wrap after 254`:'Message inactive: FF = not available'}
+    {byte:'Byte 8',hex:hex(b.payload[7]),binary:b.payload[7].toString(2).padStart(8,'0'),signal:'Heartbeat Counter',meaning:b.active?`Heartbeat counter value in this preview = ${b.heartbeat}; live counter increments after each transmitted MSB1 frame and wraps after 254`:'Message inactive: FF = not available'}
   ]);
   renderPropManual('propM1Manual',[
     'MSB1 PGN = 0x00FFC0',
@@ -1295,7 +1322,7 @@ function renderPropM1(){
     `Byte 3 = 0xE0 | Operator Message = 0x${hex(b.payload[2])}`,
     `Byte 4 = 0x3F | (Seat Belt << 6) = 0x${hex(b.payload[3])}`,
     `Byte 5 = Wheel Based Speed = ${b.active?b.wheelSpeed:'not available'} km/h = 0x${hex(b.payload[4])}`,
-    `Byte 8 = auto Heartbeat Counter = 0x${hex(b.payload[7])}`,
+    `Byte 8 = Heartbeat Counter preview/next transmit = 0x${hex(b.payload[7])}`,
     `Data = ${b.payload.map(x=>hex(x)).join(' ')}`
   ]);
 }
@@ -1413,9 +1440,9 @@ function appendProprietaryTrace(build){
   appendLineToTrace(line);
   showTraceNotice(`<strong>${escapeHtml(build.name)}:</strong> one frame appended to the shared trace.`, false);
 }
-function requestPropM1(){renderPropM1(); appendProprietaryTrace(buildPropM1({consumeHeartbeat:true})); renderPropM1();}
-function requestPropM2(){renderPropM2(); appendProprietaryTrace(buildPropM2());}
-function requestPropM3(){renderPropM3(); appendProprietaryTrace(buildPropM3());}
+function requestPropM1(){renderPropM1(); if(requireRunningTrace('MSB1')) appendProprietaryTrace(buildPropM1({consumeHeartbeat:true})); renderPropM1();}
+function requestPropM2(){renderPropM2(); if(requireRunningTrace('MSB2')) appendProprietaryTrace(buildPropM2());}
+function requestPropM3(){renderPropM3(); if(requireRunningTrace('MSB3')) appendProprietaryTrace(buildPropM3());}
 function setAllPropFaults(value){propFaultDefinitions.forEach((f,i)=>{const el=document.getElementById('propFault'+i); if(el)el.checked=!!value;}); renderPropM2();}
 
 const referenceDocuments = [{"id": "j1939_71_2025", "category": "Core J1939 Standards", "type": "pdf", "title": "SAE J1939-71 (2025) - Vehicle Application Layer", "file": "reference/pdfs/SAE_J1939-71_2025_Vehicle_Application_Layer.pdf", "size": "707 KB", "summary": "Current application-layer reference for J1939 PG conventions, SP placement, text data rules, and transmission-rate guidance."}, {"id": "j1939_71_2003", "category": "Core J1939 Standards", "type": "pdf", "title": "SAE J1939-71 (2003) - Vehicle Application Layer, Legacy", "file": "reference/pdfs/SAE_J1939-71_2003_Vehicle_Application_Layer_Legacy.pdf", "size": "9.6 MB", "summary": "Legacy J1939-71 reference containing historical SPN and PGN definitions useful for checking older PGN layouts such as SOFT and CI."}, {"id": "j1939_73_2024", "category": "Core J1939 Standards", "type": "pdf", "title": "SAE J1939-73 (2024) - Application Layer Diagnostics", "file": "reference/pdfs/SAE_J1939-73_2024_Application_Layer_Diagnostics.pdf", "size": "2.4 MB", "summary": "Diagnostic reference for DM messages, DTC encoding, lamp behavior, FMI definitions, and diagnostic request/response behavior."}, {"id": "j1939da_terms", "category": "J1939DA Digital Annex 202604", "type": "pdf", "title": "SAE J1939DA 202604 - Terms and License", "file": "reference/j1939da/SAE_J1939DA_202604_Terms_and_License.pdf", "size": "139 KB", "summary": "License and terms document that governs internal use of the J1939 Digital Annex release."}, {"id": "j1939da_support", "category": "J1939DA Digital Annex 202604", "type": "pdf", "title": "SAE J1939DA 202604 - Support Information", "file": "reference/j1939da/SAE_J1939DA_202604_Support_Information.pdf", "size": "7.3 MB", "summary": "Support notes for the Digital Annex, including additional technical information that supports the SP and PG workbook data."}, {"id": "j1939da_workbook", "category": "J1939DA Digital Annex 202604", "type": "xlsx", "title": "SAE J1939DA 202604 - Digital Annex Workbook", "file": "reference/j1939da/SAE_J1939DA_202604_Digital_Annex.xlsx", "size": "5.4 MB", "summary": "Workbook containing the J1939 Digital Annex tables for SPs, PGs, SLOTs, manufacturer IDs, source addresses, and supporting reference lists."}, {"id": "internal_live_workbook", "category": "Internal CAN Development Workbook", "type": "link", "title": "MAX-SAFE CAN Development Workbook - Live SharePoint", "file": "https://sgesco.sharepoint.com/:x:/s/AllCompany-ResearchandDevelopmentStrategy/IQBhP7-wKNE-Rqz2sBP7MOs9Af3-oviTKMRQK42qY0rEijo?e=C34HCd", "size": "Live link", "summary": "Live team workbook used to develop and review MAX-SAFE CAN messages; company sign-in may be required."}];
@@ -1555,7 +1582,6 @@ function exportBaseName(){
   return 'MAX-SAFE CAN Cyclic Trace Example';
 }
 function exportCSV(){
-  if(!traceLog.length){ appendTrace(); }
   const rows=['Time_s,CAN_ID,DLC,Data,Comment'];
   sortedTraceLog().forEach(f=>{
     const data=f.data.map(b=>hex(b)).join(' ');
@@ -1570,7 +1596,6 @@ function dateToExcelSerial(d){
   return (d.getTime()-excelEpoch)/86400000;
 }
 function exportPCANTRC(){
-  if(!traceLog.length){ appendTrace(); }
   const now=new Date();
   const lines=[];
   lines.push(';$FILEVERSION=1.1');
